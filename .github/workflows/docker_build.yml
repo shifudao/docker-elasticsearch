@@ -1,0 +1,104 @@
+name: Docker Build and Publish
+
+# 推送多架构镜像到 Docker Hub、GHCR、Quay.io 三个平台。
+# 版本取自 Dockerfile 的 ARG ELASTICSEARCH_VERSION (单一数据源),
+# tag 规则与 publish_images.sh 保持一致: 2.1.2 / 2.1 / 2 / latest。
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Dockerfile"
+      - "config/**"
+      - "docker-entrypoint.sh"
+      - "elasticsearch-analysis-ik-1.7.0.tar.xz"
+      - ".github/workflows/docker_build.yml"
+  workflow_dispatch:
+
+env:
+  PLATFORMS: linux/amd64,linux/arm64
+  IMAGE_NAME: elasticsearch
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Extract version from Dockerfile
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -oP '^ARG ELASTICSEARCH_VERSION=\K\S+' Dockerfile)"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::版本号不符合 semver 格式: $VERSION"
+            exit 1
+          fi
+          # 2.1.2 -> 2.1 / 2, 与 publish_images.sh 的 generate_tags 一致
+          MAJOR="${VERSION%%.*}"
+          MAJOR_MINOR="${VERSION%.*}"
+          {
+            echo "full=$VERSION"
+            echo "major=$MAJOR"
+            echo "major_minor=$MAJOR_MINOR"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # 三个 registry, metadata-action 会为每个 image 生成每个 tag
+          images: |
+            ${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+            quay.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.full }}
+            type=raw,value=${{ steps.version.outputs.major_minor }}
+            type=raw,value=${{ steps.version.outputs.major }}
+            type=raw,value=latest
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Quay.io
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          push: true
+          pull: true
+          platforms: ${{ env.PLATFORMS }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
