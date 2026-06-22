@@ -30,7 +30,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Extract version from Dockerfile
         id: version
@@ -52,7 +52,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           # 三个 registry, metadata-action 会为每个 image 生成每个 tag
           images: |

@@ -1,0 +1,31 @@
+name: Update Docker Hub Description
+
+# 将 README.md 同步为 Docker Hub 仓库的 Overview 描述。
+# 依赖 secrets: DOCKERHUB_USERNAME, DOCKERHUB_PASSWORD (Access Token)。
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "README.md"
+      - ".github/workflows/docker_hub_description.yml"
+  workflow_dispatch:
+
+env:
+  DOCKER_REPOSITORY: ${{ github.repository_owner }}/elasticsearch
+
+jobs:
+  docker-hub-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Sync README to Docker Hub
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          repository: ${{ env.DOCKER_REPOSITORY }}
+          short-description: ${{ github.event.repository.description }}
