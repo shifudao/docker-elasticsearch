@@ -76,7 +76,7 @@ docker run -d --name es \
 
 ## Docker Compose
 
-`docker-compose.yml`：
+`compose.yaml`：
 
 ```yaml
 services:
@@ -103,6 +103,51 @@ volumes:
 ```bash
 docker compose up -d
 ```
+
+## 健康检查与依赖编排
+
+ES 2.x 启动偏慢（首次需建索引、加载 IK 插件、完成主节点选举），下游服务若在 ES 就绪前启动会连接失败。利用 Compose 的 `healthcheck` 配合 `depends_on.condition: service_healthy`，可让依赖容器等到 ES 真正就绪后再启动。
+
+`compose.yaml`：
+
+```yaml
+services:
+  elasticsearch:
+    image: shifudao/elasticsearch:2.1.2
+    container_name: es
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      ES_HEAP_SIZE: 2g
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=2s"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  app:
+    image: your-app-image        # 替换为实际应用镜像
+    depends_on:
+      elasticsearch:
+        condition: service_healthy   # ES 进入 healthy 状态后才启动 app
+    restart: unless-stopped
+
+volumes:
+  es-data:
+```
+
+说明：
+
+- **`wait_for_status=yellow`**：ES 在 2s（`timeout=2s`）内达到 yellow/green 才返回 200，否则返回 408，wget 随即非零退出、本次检查计为失败。相比单纯判断端口可达，它能识别“进程活着但集群 `status: red`”的中间态，避免下游误连。
+- **`start_period: 60s`**：启动后 60s 内的失败不计入 unhealthy 判定，专为 ES 2.x + IK 的慢启动预留。数据量大或机器较慢时应适当调大。
+- **`timeout: 5s`**（需大于 URL 内的 `timeout=2s`）：给单次检查留余量。
+- 若只判断端口存活、不关心集群状态，可去掉 `?wait_for_status=yellow&timeout=2s` 查询参数。
+- `depends_on.condition` 另有 `service_started`（默认，仅等容器启动）与 `service_completed_successfully`（等 init 容器成功退出）两个取值。
 
 ## IK 分词器
 
