@@ -1,8 +1,8 @@
 name: Docker Build and Publish
 
-# 推送多架构镜像到 Docker Hub、GHCR、Quay.io 三个平台。
-# 版本取自 Dockerfile 的 ARG ELASTICSEARCH_VERSION (单一数据源),
-# tag 规则与 publish_images.sh 保持一致: 2.1.2 / 2.1 / 2 / latest。
+# Publish multi-arch images to Docker Hub, GHCR, and Quay.io.
+# The version is sourced from Dockerfile's ARG ELASTICSEARCH_VERSION (single source of truth),
+# and tag rules match publish_images.sh: 2.1.2 / 2.1 / 2 / latest.
 
 on:
   push:
@@ -38,10 +38,10 @@ jobs:
           set -euo pipefail
           VERSION="$(grep -oP '^ARG ELASTICSEARCH_VERSION=\K\S+' Dockerfile)"
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::版本号不符合 semver 格式: $VERSION"
+            echo "::error::Version does not match semver format: $VERSION"
             exit 1
           fi
-          # 2.1.2 -> 2.1 / 2, 与 publish_images.sh 的 generate_tags 一致
+          # 2.1.2 -> 2.1 / 2, matching publish_images.sh generate_tags
           MAJOR="${VERSION%%.*}"
           MAJOR_MINOR="${VERSION%.*}"
           {
@@ -54,7 +54,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          # 三个 registry, metadata-action 会为每个 image 生成每个 tag
+          # Three registries; metadata-action generates every tag for each image
           images: |
             ${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}

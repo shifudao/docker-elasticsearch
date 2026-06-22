@@ -1,7 +1,7 @@
 name: Update Docker Hub Description
 
-# 将 README.md 同步为 Docker Hub 仓库的 Overview 描述。
-# 依赖 secrets: DOCKERHUB_USERNAME, DOCKERHUB_PASSWORD (Access Token)。
+# Sync README.md to the Docker Hub repository Overview.
+# Requires secrets: DOCKERHUB_USERNAME, DOCKERHUB_PASSWORD (Access Token).
 
 on:
   push:
