@@ -5,6 +5,8 @@
 - **Elasticsearch** `2.1.2`
 - **IK Analysis 插件** `1.7.0`（已为 2.1.2 做编译修改）
 
+镜像同步发布于 [Docker Hub](https://hub.docker.com/r/shifudao/elasticsearch)、[GHCR](https://github.com/shifudao/docker-elasticsearch/pkgs/container/elasticsearch) 与 [Quay.io](https://quay.io/repository/shifudao/elasticsearch)，三者内容一致（同一多架构 manifest），拉取时任选其一。
+
 ## 多架构
 
 镜像同时发布 `linux/amd64` 与 `linux/arm64`（镜像约 176 MB，拉取时自动匹配宿主架构）。
